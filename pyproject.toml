@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mermaid2image"
-version = "0.0.0"
+version = "0.0.1"
 readme = "README.md"
 description = "Mermaid markdown to image using https://mermaid.ink/img/ API."
 authors = [{name = "Matevž", email = "matevzlesko@gmail.com"},]
@@ -33,7 +33,7 @@ Issues = "https://github.com/LeskoIam/mermaid2image/issues"
 
 
 [tool.bumpver]
-current_version = "0.0.0"
+current_version = "0.0.1"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit_message = "Bump version {old_version} -> {new_version}."
 tag_message = "v{new_version}"
