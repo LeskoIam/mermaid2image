@@ -1,12 +1,17 @@
 __version__ = "0.0.1"
 import base64
 import io
+import logging
 import os.path
 import time
 from collections.abc import Iterable
 from os import PathLike
 
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    logging.warning("Will not be able to show plots. matplotlib not installed.")
+    plt = False
 import requests
 from PIL import Image
 
@@ -77,8 +82,9 @@ class Mermaid2Image:
             img.save(image_name)
             self.image_counter += 1
         else:
-            plt.imshow(img)
-            plt.show()
+            if plt:
+                plt.imshow(img)
+                plt.show()
         time.sleep(self.courtesy_sleep)
 
     def __add_theme(self, mmd_str: str) -> str:
@@ -171,8 +177,6 @@ class Mermaid2Image:
 
 
 if __name__ == "__main__":
-    m2i = Mermaid2Image()
-
     mmd = """
     graph LR;
         A--> B & C & D;
@@ -182,6 +186,7 @@ if __name__ == "__main__":
         E--> B & C & D;
     """
 
+    m2i = Mermaid2Image()
     m2i.generate(mmd, theme="forest")
     m2i.generate("test_mmd.md", image_name="output\\test_mmd.png")
     m2i.generate(["test_mmd.md", mmd], image_name="output\\multiple_sources.png", theme="dark")
