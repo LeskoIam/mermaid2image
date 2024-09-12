@@ -7,13 +7,26 @@ import time
 from collections.abc import Iterable
 from os import PathLike
 
+import requests
+from PIL import Image
+
+log = logging.getLogger(__name__)
+logging.basicConfig(
+    format="%(asctime)s [%(levelname)8s] [%(filename)s:%(lineno)4s:%(funcName)20s()]\t%(message)s",
+    level=logging.INFO,
+)
+
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    logging.warning("Will not be able to show plots. matplotlib not installed.")
+    log.warning("Will not be able to show plots. matplotlib not installed.")
     plt = False
-import requests
-from PIL import Image
+
+
+# https://mermaid.js.org/config/theming.html#available-themes
+SUPPORTED_THEMES = ["default", "neutral", "dark", "forest", "base"]
+SUPPORTED_INPUT_FILES = [".md"]
+SUPPORTED_IMAGE_TYPES = [".png"]
 
 
 class Mermaid2ImageError(Exception):
@@ -21,10 +34,6 @@ class Mermaid2ImageError(Exception):
 
 
 class Mermaid2Image:
-    # https://mermaid.js.org/config/theming.html#available-themes
-    THEMES = ["default", "neutral", "dark", "forest", "base"]
-    SUPPORTED_INPUT_FILES = [".md"]
-    SUPPORTED_IMAGE_TYPES = [".png"]
 
     def __init__(
         self,
@@ -70,21 +79,27 @@ class Mermaid2Image:
         """
         if self.theme is not None and not self.__has_theme_set(mmd_str):
             mmd_str = self.__add_theme(mmd_str)
+        log.info("Theme '%s'", self.theme)
 
         graph_bytes = mmd_str.encode("utf8")
         base64_bytes = base64.urlsafe_b64encode(graph_bytes)
         base64_string = base64_bytes.decode("ascii")
         returned_image_data = requests.get(self.__mermaid_ink_url + base64_string).content
         img = Image.open(io.BytesIO(returned_image_data))
-        if self.image_name is not None and os.path.splitext(self.image_name)[1] in self.SUPPORTED_IMAGE_TYPES:
+        if self.image_name is not None and os.path.splitext(self.image_name)[1] in SUPPORTED_IMAGE_TYPES:
             name_ext = os.path.splitext(self.image_name)
             image_name = name_ext[0] + f"_{self.image_counter:0>3}" + name_ext[1]
+            log.info("Saving image '%s'", image_name)
+            os.makedirs(os.path.dirname(image_name), exist_ok=True)
             img.save(image_name)
-            self.image_counter += 1
         else:
             if plt:
+                title = f"{self.image_counter:0>3}"
+                log.info("Showing image '%s'", title)
+                plt.title(title)
                 plt.imshow(img)
                 plt.show()
+        self.image_counter += 1
         time.sleep(self.courtesy_sleep)
 
     def __add_theme(self, mmd_str: str) -> str:
@@ -93,7 +108,7 @@ class Mermaid2Image:
         :param mmd_str: mermaid string without the theme
         :return: mermaid string with theme added
         """
-        if self.theme is not None and self.theme not in self.THEMES:
+        if self.theme is not None and self.theme not in SUPPORTED_THEMES:
             raise ValueError(f"Theme '{self.theme}' is not supported.")
 
         theme = f"%%{{init: {{'theme':'{self.theme}'}}}}%%\n"
@@ -127,16 +142,17 @@ class Mermaid2Image:
             self.theme = theme
         if image_name is not None:
             self.image_name = image_name
+
         if isinstance(mmd_input, list | tuple | set):
-            print("mmd is collection (list, tuple, set)")
+            log.info("mmd is collection (list, tuple, set)")
             for mmd_str in mmd_input:
                 self.generate(mmd_str, theme=theme, image_name=image_name)
         elif os.path.isfile(mmd_input):
-            print("mmd is file")
+            log.info("mmd is file")
             path = mmd_input
             self.__generate_from_file(path)
         elif isinstance(mmd_input, str):
-            print("mmd is string")
+            log.info("mmd is string")
             self.__generate(mmd_input)
         else:
             raise TypeError(f"mmd is of invalid type '{type(mmd)}'")
@@ -147,7 +163,7 @@ class Mermaid2Image:
         :param path: path to file containing mermaid code block/s
         :param theme: theme to apply to output diagram/s
         """
-        if os.path.splitext(path)[1] not in self.SUPPORTED_INPUT_FILES:
+        if os.path.splitext(path)[1] not in SUPPORTED_INPUT_FILES:
             raise ValueError(f"File type '{os.path.splitext(path)[1]}' is not supported.")
 
         with open(path, "r") as mmd_file:
@@ -175,8 +191,14 @@ class Mermaid2Image:
             find_op = next_op
         self.generate(found_mmd_strings, theme=self.theme)
 
+def is_allowed_file(path:str | None = None) -> bool:
+    return os.path.splitext(path)[1].lower() in SUPPORTED_INPUT_FILES
 
 if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser()
+
     mmd = """
     graph LR;
         A--> B & C & D;
@@ -187,6 +209,29 @@ if __name__ == "__main__":
     """
 
     m2i = Mermaid2Image()
-    m2i.generate(mmd, theme="forest")
-    m2i.generate("test_mmd.md", image_name="output\\test_mmd.png")
-    m2i.generate(["test_mmd.md", mmd], image_name="output\\multiple_sources.png", theme="dark")
+    # m2i.generate(mmd, theme="forest")
+    # # m2i.generate("test_mmd.md", image_name="output\\test_mmd.png")
+    # m2i.generate(["test_mmd.md", mmd], image_name="output\\multiple_sources.png", theme="dark")
+
+    parser.add_argument('dirs_or_files', nargs='+', default=os.getcwd(), help=f"Directory or file in which mermaid markdown will be searched for.")
+    parser.add_argument("-t", "--theme", choices=SUPPORTED_THEMES, default=None, help="Theme that will be applied to output diagram/s", type=str)
+    parser.add_argument("-n", "--name", default=None, help="Name of the output image files. Consecutive number will be added to file name.", type=str)
+    args = parser.parse_args()
+
+    dirs_or_files = args.dirs_or_files
+    theme = args.theme
+    image_name = args.name
+
+    mmd_files = []
+    for dir_or_file in dirs_or_files:
+        if os.path.isdir(dir_or_file):
+            files = filter(is_allowed_file, os.listdir(dir_or_file))
+            for file in files:
+                file = os.path.relpath(os.path.join(dir_or_file, file))
+                mmd_files.append(file)
+        elif os.path.isfile(dir_or_file):
+            file = os.path.relpath(dir_or_file)
+            mmd_files.append(file)
+    mmd_files = tuple(set(mmd_files))
+
+    m2i.generate(mmd_files, theme=theme, image_name=image_name)
