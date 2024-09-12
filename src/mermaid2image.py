@@ -1,4 +1,5 @@
 __version__ = "0.0.1"
+
 import base64
 import io
 import logging
@@ -22,7 +23,6 @@ except ImportError:
     log.warning("Will not be able to show plots. matplotlib not installed.")
     plt = False
 
-
 # https://mermaid.js.org/config/theming.html#available-themes
 SUPPORTED_THEMES = ["default", "neutral", "dark", "forest", "base"]
 SUPPORTED_INPUT_FILES = [".md"]
@@ -34,7 +34,6 @@ class Mermaid2ImageError(Exception):
 
 
 class Mermaid2Image:
-
     def __init__(
         self,
         image_name: str | None = None,
@@ -191,8 +190,14 @@ class Mermaid2Image:
             find_op = next_op
         self.generate(found_mmd_strings, theme=self.theme)
 
-def is_allowed_file(path:str | None = None) -> bool:
+
+def is_allowed_file(path: str | None = None) -> bool:
+    """Is file type allowed by mermaid2image.
+
+    :param path: path to file
+    """
     return os.path.splitext(path)[1].lower() in SUPPORTED_INPUT_FILES
+
 
 if __name__ == "__main__":
     import argparse
@@ -213,9 +218,27 @@ if __name__ == "__main__":
     # # m2i.generate("test_mmd.md", image_name="output\\test_mmd.png")
     # m2i.generate(["test_mmd.md", mmd], image_name="output\\multiple_sources.png", theme="dark")
 
-    parser.add_argument('dirs_or_files', nargs='+', default=os.getcwd(), help=f"Directory or file in which mermaid markdown will be searched for.")
-    parser.add_argument("-t", "--theme", choices=SUPPORTED_THEMES, default=None, help="Theme that will be applied to output diagram/s", type=str)
-    parser.add_argument("-n", "--name", default=None, help="Name of the output image files. Consecutive number will be added to file name.", type=str)
+    parser.add_argument(
+        "dirs_or_files",
+        nargs="+",
+        default=os.getcwd(),
+        help="Directory or file in which mermaid markdown will be searched for.",
+    )
+    parser.add_argument(
+        "-t",
+        "--theme",
+        choices=SUPPORTED_THEMES,
+        default=None,
+        help="Theme that will be applied to output diagram/s",
+        type=str,
+    )
+    parser.add_argument(
+        "-n",
+        "--name",
+        default=None,
+        help="Name of the output image files. Consecutive number will be added to file name.",
+        type=str,
+    )
     args = parser.parse_args()
 
     dirs_or_files = args.dirs_or_files
