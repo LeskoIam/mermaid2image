@@ -18,39 +18,40 @@ class Mermaid2ImageError(Exception):
 class Mermaid2Image:
     # https://mermaid.js.org/config/theming.html#available-themes
     THEMES = ["default", "neutral", "dark", "forest", "base"]
-    SUPPORTED_FILES = [".md"]
+    SUPPORTED_INPUT_FILES = [".md"]
+    SUPPORTED_IMAGE_TYPES = [".png"]
 
     def __init__(
         self,
-        mmd_input: str | bytes | PathLike[str] | PathLike[bytes] | Iterable | None = None,
-        image_path: str | None = None,
+        image_name: str | None = None,
         theme: str | None = None,
         courtesy_sleep: int = 1,
     ):
         """Mermaid markdown to image.
-        mmd_input can be:
-        - a mermaid markdown string
-        - a `.md` file containing mermaid code block/s
-        - iterable of all of the above
 
         theme priority:
         - from_src > from_code
 
-        :param mmd_input: mermaid markdown input
-        :param image_path: path of the output image
+        :param image_name: name of the output image
         :param theme: theme to apply to output diagram/s
         :param courtesy_sleep: sleep time between mermaid API calls (enforced to min 1s)
         """
-        self.mmd_input = mmd_input
-        self.image_name = image_path
+        self.image_name = image_name
         self.theme = theme
         self._courtesy_sleep = None
         self.courtesy_sleep = courtesy_sleep
 
         self.__mermaid_ink_url = "https://mermaid.ink/img/"
 
+        self.image_counter = 0
+
+    def reset_image_counter(self):
+        """Reset image counter. Use with caution, can cause overwritten images."""
+        self.image_counter = 0
+
     @property
     def courtesy_sleep(self):
+        """Courtesy sleep property."""
         return self._courtesy_sleep
 
     @courtesy_sleep.setter
@@ -64,16 +65,20 @@ class Mermaid2Image:
         """
         if self.theme is not None and not self.__has_theme_set(mmd_str):
             mmd_str = self.__add_theme(mmd_str)
+
         graph_bytes = mmd_str.encode("utf8")
         base64_bytes = base64.urlsafe_b64encode(graph_bytes)
         base64_string = base64_bytes.decode("ascii")
-        returned_image_data = requests.get(
-            self.__mermaid_ink_url + base64_string
-        ).content
+        returned_image_data = requests.get(self.__mermaid_ink_url + base64_string).content
         img = Image.open(io.BytesIO(returned_image_data))
-        # img.save('mermaid.png')
-        plt.imshow(img)
-        plt.show()
+        if self.image_name is not None and os.path.splitext(self.image_name)[1] in self.SUPPORTED_IMAGE_TYPES:
+            name_ext = os.path.splitext(self.image_name)
+            image_name = name_ext[0] + f"_{self.image_counter:0>3}" + name_ext[1]
+            img.save(image_name)
+            self.image_counter += 1
+        else:
+            plt.imshow(img)
+            plt.show()
         time.sleep(self.courtesy_sleep)
 
     def __add_theme(self, mmd_str: str) -> str:
@@ -109,14 +114,17 @@ class Mermaid2Image:
         - iterable of all of the above
 
         :param mmd_input: mermaid markdown input
+        :param image_name: name of the output image
         :param theme: theme to apply to output diagram/s
         """
         if theme is not None:
             self.theme = theme
+        if image_name is not None:
+            self.image_name = image_name
         if isinstance(mmd_input, list | tuple | set):
             print("mmd is collection (list, tuple, set)")
             for mmd_str in mmd_input:
-                self.generate(mmd_str, theme=theme)
+                self.generate(mmd_str, theme=theme, image_name=image_name)
         elif os.path.isfile(mmd_input):
             print("mmd is file")
             path = mmd_input
@@ -127,18 +135,14 @@ class Mermaid2Image:
         else:
             raise TypeError(f"mmd is of invalid type '{type(mmd)}'")
 
-    def __generate_from_file(
-        self, path: str | bytes | PathLike[str] | PathLike[bytes]
-    ) -> None:
+    def __generate_from_file(self, path: str | bytes | PathLike[str] | PathLike[bytes]) -> None:
         """Find mermaid markdown in file and generate diagram/s from it.
 
         :param path: path to file containing mermaid code block/s
         :param theme: theme to apply to output diagram/s
         """
-        if os.path.splitext(path)[1] not in self.SUPPORTED_FILES:
-            raise ValueError(
-                f"File type '{os.path.splitext(path)[1]}' is not supported."
-            )
+        if os.path.splitext(path)[1] not in self.SUPPORTED_INPUT_FILES:
+            raise ValueError(f"File type '{os.path.splitext(path)[1]}' is not supported.")
 
         with open(path, "r") as mmd_file:
             mmd_str_lines = mmd_file.readlines()
@@ -157,24 +161,17 @@ class Mermaid2Image:
                     if line.strip().startswith("```"):
                         line_end_i = line_i
                         next_op = "find_start"
-                        found_mmd_strings.append(
-                            "".join(mmd_str_lines[line_start_i + 1 : line_end_i])
-                        )
+                        found_mmd_strings.append("".join(mmd_str_lines[line_start_i + 1 : line_end_i]))
                     else:
                         continue
                 case _:
-                    raise Mermaid2ImageError(
-                        f"next_op <'{find_op}'> could not do that, ...??"
-                    )
+                    raise Mermaid2ImageError(f"next_op <'{find_op}'> could not do that, ...??")
             find_op = next_op
-        self.generate(found_mmd_strings)
+        self.generate(found_mmd_strings, theme=self.theme)
 
 
 if __name__ == "__main__":
-    m2i = Mermaid2Image(courtesy_sleep=0.5)
-    print(m2i.courtesy_sleep)
-    m2i.courtesy_sleep = 5
-    print(m2i.courtesy_sleep)
+    m2i = Mermaid2Image()
 
     mmd = """
     graph LR;
@@ -185,6 +182,6 @@ if __name__ == "__main__":
         E--> B & C & D;
     """
 
-    # m2i.generate(mmd, theme="forest")
-    # m2i.generate("test_mmd.md")
-    m2i.generate(["test_mmd.md", mmd], theme="dark")
+    m2i.generate(mmd, theme="forest")
+    m2i.generate("test_mmd.md", image_name="output\\test_mmd.png")
+    m2i.generate(["test_mmd.md", mmd], image_name="output\\multiple_sources.png", theme="dark")
