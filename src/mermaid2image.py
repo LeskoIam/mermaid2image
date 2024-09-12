@@ -1,6 +1,6 @@
 __version__ = "0.0.1"
-import io
 import base64
+import io
 import os.path
 import time
 from collections.abc import Iterable
@@ -23,16 +23,39 @@ class Mermaid2Image:
     def __init__(
         self,
         mmd_input: str | bytes | PathLike[str] | PathLike[bytes] | Iterable | None = None,
-        image_name: str | None = None,
+        image_path: str | None = None,
         theme: str | None = None,
         courtesy_sleep: int = 1,
     ):
+        """Mermaid markdown to image.
+        mmd_input can be:
+        - a mermaid markdown string
+        - a `.md` file containing mermaid code block/s
+        - iterable of all of the above
+
+        theme priority:
+        - from_src > from_code
+
+        :param mmd_input: mermaid markdown input
+        :param image_path: path of the output image
+        :param theme: theme to apply to output diagram/s
+        :param courtesy_sleep: sleep time between mermaid API calls (enforced to min 1s)
+        """
         self.mmd_input = mmd_input
-        self.image_name = image_name
+        self.image_name = image_path
         self.theme = theme
+        self._courtesy_sleep = None
         self.courtesy_sleep = courtesy_sleep
 
         self.__mermaid_ink_url = "https://mermaid.ink/img/"
+
+    @property
+    def courtesy_sleep(self):
+        return self._courtesy_sleep
+
+    @courtesy_sleep.setter
+    def courtesy_sleep(self, c_sleep):
+        self._courtesy_sleep = c_sleep if c_sleep > 1 else 1
 
     def __generate(self, mmd_str: str) -> None:
         """Generate image file from given mmd string.
@@ -90,7 +113,7 @@ class Mermaid2Image:
         """
         if theme is not None:
             self.theme = theme
-        if isinstance(mmd_input, (list, tuple, set)):
+        if isinstance(mmd_input, list | tuple | set):
             print("mmd is collection (list, tuple, set)")
             for mmd_str in mmd_input:
                 self.generate(mmd_str, theme=theme)
@@ -148,7 +171,10 @@ class Mermaid2Image:
 
 
 if __name__ == "__main__":
-    m2i = Mermaid2Image()
+    m2i = Mermaid2Image(courtesy_sleep=0.5)
+    print(m2i.courtesy_sleep)
+    m2i.courtesy_sleep = 5
+    print(m2i.courtesy_sleep)
 
     mmd = """
     graph LR;
