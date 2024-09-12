@@ -1,3 +1,12 @@
 matplotlib>=3.9.2
 requests>=2.32.3
 pillow>=10.4.0
+
+# Dev
+ruff>=0.6.4
+bumpver>=2023.1129
+
+
+# Build/Distribute
+build==1.2.2
+twine>=5.1.1
