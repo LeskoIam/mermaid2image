@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "mermaid2img"
+name = "mermaid2image"
 version = "0.0.0"
 readme = "README.md"
 description = "Mermaid markdown to image using https://mermaid.ink/img/ API."
@@ -27,9 +27,9 @@ classifiers = [
 [project.scripts]
 mermaid2image = "src.mermaid2image"
 
-#[project.urls]
-#Homepage = "https://github.com/LeskoIam/kronoterm_cloud_api"
-#Issues = "https://github.com/LeskoIam/kronoterm_cloud_api/issues"
+[project.urls]
+Homepage = "https://github.com/LeskoIam/mermaid2image"
+Issues = "https://github.com/LeskoIam/mermaid2image/issues"
 
 
 [tool.bumpver]
@@ -42,7 +42,7 @@ pre_commit_hook = ""
 post_commit_hook = ""
 commit = true
 tag = true
-push = false
+push = true
 
 
 [tool.bumpver.file_patterns]
